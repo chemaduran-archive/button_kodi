@@ -22,8 +22,6 @@
 //#define MQTT_MAX_PACKET_SIZE 512 
 #include <ESP8266WiFi.h>
 #include <Ticker.h>
-#include <TimeLib.h>
-#include <ArduinoJson.h>
 
 #include <SPI.h> // From Kodi
 #include <Ethernet.h> // from Kodi
@@ -33,11 +31,13 @@
 #define MAX_WIFI_BEGIN_TIME 500 * 30 //ESpera por ingraso en la WIFI
 
 const char* ssid     = "RASUS"; //SSID de la WIFI a utilizar
-const char* password = ""; // Passwd de la WIFI a utilizar
+const char* password = "TereBeaJosePablo49788290"; // Passwd de la WIFI a utilizar
 
 Ticker Ticker1;
 boolean led_state = false;
 int pin=1; // correspondiente al GPIO5
+int buttonState = 0;         // variable for reading the pushbutton status
+const int buttonPin = 2;     // the number of the pushbutton pin
 
 int lastWIFIStatus = 0;
 int WifiConnect_state = 0;
@@ -46,6 +46,12 @@ long lastWIFIbeginAttempt = 0;
 long firstWIFIbeginAttempt = 0;
 
 WiFiClient espClient;
+
+// arduino mac address
+byte mac[] = {0xDE,0xAC,0xBF,0xEF,0xFE,0xAA};
+// xbmc ip
+byte xbmchost[] = {192,168,1,37};
+//EthernetClient client;
 
 void setup() {
   Serial.begin(115200);
@@ -61,30 +67,11 @@ void setup() {
   Ticker1.attach(0.05, timer1);
 
   pinMode(LED_BUILTIN, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
-
-  pinMode(14, OUTPUT); // led encendido por humedad por encima de la critica
-  pinMode(12, OUTPUT); // led encendido por humedad por encima de la Baja
-  pinMode(13, OUTPUT); // led encendido por humedad por encima de la media
-  pinMode(15, OUTPUT); // led encendido por humedad por encima de la alta
-  
   
   Serial.println("Setup done");
 }
 
-void MacToArray(byte * ByteMac, char * CharMac){
-  sprintf(&CharMac[0],"%02X", ByteMac[5]);
-  CharMac[2] = ':';
-  sprintf(&CharMac[3],"%02X", ByteMac[4]);
-  CharMac[5] = ':';
-  sprintf(&CharMac[6],"%02X", ByteMac[3]);
-  CharMac[8] = ':';
-  sprintf(&CharMac[9],"%02X", ByteMac[2]);
-  CharMac[11] = ':';
-  sprintf(&CharMac[12],"%02X", ByteMac[1]);
-  CharMac[14] = ':';      
-  sprintf(&CharMac[15],"%02X", ByteMac[0]);
 
-}
 
 void timer1()
 {        
@@ -136,6 +123,27 @@ void loop() {
       WifiConnect_state = 0;
       lastWIFIStatus = 0;
     }
+  }
+
+  check_button();
+}
+
+void check_button() {
+  
+  buttonState = digitalRead(buttonPin);
+
+  // check if the pushbutton is pressed.
+  // if it is, the buttonState is HIGH:
+  if (buttonState == LOW) {
+    // turn LED on:
+    digitalWrite(LED_BUILTIN, HIGH);
+
+    Serial.println("Button pressed. Sending Action to KODI");
+    xbmc("Player.GoTo","playerid\":1,\"to\":\"next\"");
+    delay(2000);
+  } else {
+    // turn LED off:
+    digitalWrite(LED_BUILTIN, LOW);
   }
 }
 
@@ -232,28 +240,18 @@ int _WifiConnect(int state) {
    disable password and username in xbmc
 */
 
-
-
-// arduino mac address
-byte mac[] = {0xDE,0xAC,0xBF,0xEF,0xFE,0xAA};
-
-// xbmc ip
-byte xbmchost[] = {192,168,2,3};
-
-EthernetClient client;
-
-void setup()
+void kodi_setup()
 {
-  Serial.begin(9600);
-  Serial.print(F("Starting ethernet..."));
-  if(!Ethernet.begin(mac)) Serial.println("failed");
-  else Serial.println(Ethernet.localIP());
+//  Serial.begin(9600);
+//  Serial.print(F("Starting ethernet..."));
+  //if(!Ethernet.begin(mac)) Serial.println("failed");
+//  else Serial.println(Ethernet.localIP());
 
-  delay(5000);
-  Serial.println("Ready");
+//  delay(5000);
+//  Serial.println("Ready");
 }
 
-void loop()
+void kodi_loop()
 {
   /********** media buttons **********/
   
@@ -326,9 +324,9 @@ void loop()
   /********** enable/disable addons **********/
   
   xbmc("Addons.SetAddonEnabled","addonid\":\"script.xbmc.boblight\",\"enabled\":true");
-  delay(5000)
+  delay(5000);
   xbmc("Addons.SetAddonEnabled","addonid\":\"script.xbmc.boblight\",\"enabled\":false");
-  delay(5000)
+  delay(5000);
 
   /********** navigate menu's **********/
 
@@ -368,21 +366,21 @@ void loop()
 
 void xbmc(char *method, char *params)
 {
-  if (client.connect(xbmchost,8090))
+  if (espClient.connect(xbmchost,8080))
   {
-    client.print("GET /jsonrpc?request={\"jsonrpc\":\"2.0\",\"method\":\"");
-    client.print(method);
-    client.print("\",\"params\":{\"");
-    client.print(params);
-    client.println("},\"id\":1}  HTTP/1.1");
-    client.println("Host: XBMC");
-    client.println("Connection: close");
-    client.println();
-    client.stop();
+    espClient.print("GET /jsonrpc?request={\"jsonrpc\":\"2.0\",\"method\":\"");
+    espClient.print(method);
+    espClient.print("\",\"params\":{\"");
+    espClient.print(params);
+    espClient.println("},\"id\":1}  HTTP/1.1");
+    espClient.println("Host: XBMC");
+    espClient.println("Connection: close");
+    espClient.println();
+    espClient.stop();
   }
   else
   {
-    client.stop();
+    espClient.stop();
   }
 }
 
